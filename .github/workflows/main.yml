@@ -1,0 +1,45 @@
+name: Ubuntu GUI Remote Access
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Install Desktop (XFCE + VNC)
+        run: |
+          sudo apt update
+          sudo apt install -y xfce4 xfce4-goodies tightvncserver curl
+
+      - name: Setup VNC Server
+        run: |
+          mkdir -p ~/.vnc
+          echo "password" | vncpasswd -f > ~/.vnc/passwd
+          chmod 600 ~/.vnc/passwd
+
+          cat > ~/.vnc/xstartup << 'EOF'
+          #!/bin/bash
+          startxfce4 &
+          EOF
+
+          chmod +x ~/.vnc/xstartup
+
+      - name: Start VNC
+        run: |
+          vncserver :1 -geometry 1280x720 -depth 24
+
+      - name: Install Cloudflared
+        run: |
+          curl -L https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 -o cloudflared
+          chmod +x cloudflared
+
+      - name: Start Cloudflare Tunnel
+        run: |
+          ./cloudflared tunnel --url tcp://localhost:5901 > tunnel.log 2>&1 &
+          sleep 10
+          cat tunnel.log
+
+      - name: Keep Alive
+        run: sleep 6h
